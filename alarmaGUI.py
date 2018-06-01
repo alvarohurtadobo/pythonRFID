@@ -212,7 +212,7 @@ if __name__ == '__main__':
     """
     Este pequeno script demostrativo muestra que la interfaz puede ser creada sin interferir con el programa principal
     """
-    p = GUIParalela(simulation = False,fullScreen=False)
+    p = GUIParalela(simulation = False,fullScreen=True)
     sleep(2)
     p.desactivarAlarma('13','Raspberry')
     sleep(1)
