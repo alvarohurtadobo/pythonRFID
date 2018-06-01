@@ -1,14 +1,43 @@
 import sys
+import multiprocessing
 from time import sleep, strftime
 from PyQt4 import QtGui, QtCore
 
-class AlarmaGUI(QtGui.QWidget):         #QWidget
+class GUIParalela():
+    myQueue = multiprocessing.Queue()
+
     def __init__(self):
-        #super(AlarmaGUI, self).__init__()
-        QtGui.QWidget.__init__(self, None, QtCore.Qt.WindowStaysOnTopHint)
+        app = QtGui.QApplication(sys.argv)
+        p = multiprocessing.Process(target=self.simularLlegadaDatos,args=())
+        p.start()
+        interfaz = AlarmaGUI(GUIParalela.myQueue)
+        sys.exit(app.exec_())
+        p.join() 
+        
+    def simularLlegadaDatos(self):
+        for i in range(10):
+            valor = (True,str(i),strftime("%Y"+"-"+"%m"+"-"+"%d"+" "+"%H"+":"+"%M"+":"+"%S"))
+            print(i,': ',valor)
+            GUIParalela.myQueue.put(valor)
+            sleep(2)
+            valor = (False,'','')
+            GUIParalela.myQueue.put(valor)
+            print(i,': ',valor)
+            sleep(2)  
+
+
+
+class AlarmaGUI(QtGui.QWidget):         #QWidget #QMainWindow
+    def __init__(self,fila,parent=None):
+        super(AlarmaGUI, self).__init__(parent)
+        #self.setupUI(self)
+        #QtGui.QWidget.__init__(self, None, QtCore.Qt.WindowStaysOnTopHint)
         # Parámetros constantes:
         self.titulo = 'Estado de alarma'
         self.estado = 'Activado'
+        self.thread = ThreadClass(fila)
+        self.thread.start()
+        self.connect(self.thread,QtCore.SIGNAL('ACTUALIZAR_ESTADO'),self.actualizarValor)
         # Clases auxiliares:
         self.initUI()
         # Al inicializarse la clase se muestra:
@@ -74,29 +103,38 @@ class AlarmaGUI(QtGui.QWidget):         #QWidget
     def Time(self):
         self.lcd.display(strftime("%Y"+"-"+"%m"+"-"+"%d"+" "+"%H"+":"+"%M"+":"+"%S"))
 
+    def actualizarValor(self,valor):
+        print('Actualizando a:',valor)
+        (estado, id, nombre) = valor
+        if estado:
+            self.desactivarAlarma(id,nombre)
+        else:
+            self.activarAlarma()
+
     def desactivarAlarma(self,id,nombre):
         self.imagen.setPixmap(self.pixmapDeact)
-        self.labelIdentificado.setText(nombre)
         self.labelAutentificacion.setText(id)
+        self.labelIdentificado.setText(nombre)
 
     def activarAlarma(self):
         self.imagen.setPixmap(self.pixmapAct)
         self.labelAutentificacion.setText(self.stringSolicitudAutentificacion)
+        self.labelIdentificado.setText('')
 
-def main():
-    app = QtGui.QApplication(sys.argv)
-    ex = AlarmaGUI()
-    print('Sali inicializacion')
-    sys.exit(app.exec_())
-    print('Sali exec')
-    for i in range(10):
-        print(i)
-        ex.desactivarAlarma(str(i),strftime("%Y"+"-"+"%m"+"-"+"%d"+" "+"%H"+":"+"%M"+":"+"%S"))
-        sleep(2)
-        ex.activarAlarma()
-        sleep(2)
-    
-    
+
+class ThreadClass(QtCore.QThread):
+    def __init__(self,fila,parent = None):
+        super(ThreadClass,self).__init__(parent)
+        self.queue = fila
+
+    def run(self):
+        while True:
+            if not self.queue.empty():
+                valor = self.queue.get() # valor = (estado, id, nombre)
+                print(valor)
+                self.emit(QtCore.SIGNAL('ACTUALIZAR_ESTADO'),valor)
+                print('I received')
+
 
 if __name__ == '__main__':
-    main()
+    a = GUIParalela()
